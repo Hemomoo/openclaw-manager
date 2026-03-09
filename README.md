@@ -10,9 +10,11 @@ OpenClaw Manager 是一个基于 Monorepo 架构的现代化应用项目，提�
 
 - **包管理器**: pnpm 10.26.1
 - **构建工具**: Turbo
-- **桌面应用**: Electron + React + TypeScript
-- **Web 应用**: Next.js + React + TypeScript
-- **样式**: TailwindCSS
+- **桌面应用**: Electron + React + TypeScript + Rspack
+- **Web 应用**: Next.js 16 + React 19 + TypeScript
+- **样式**: TailwindCSS 4
+- **UI 组件**: shadcn-ui
+- **状态管理**: Zustand
 - **代码规范**: ESLint + Prettier
 
 ## 📁 项目结构
@@ -21,7 +23,17 @@ OpenClaw Manager 是一个基于 Monorepo 架构的现代化应用项目，提�
 openclaw-manager/
 ├── apps/
 │   ├── electron-app/          # Electron 桌面应用
-│   └── open-claw/             # Web 前端应用
+│   │   ├── src/
+│   │   │   ├── main/         # Electron 主进程
+│   │   │   └── preload/      # 预加载脚本
+│   │   └── package.json
+│   └── open-claw/             # Web 前端应用 (Next.js)
+│       ├── src/
+│       │   ├── app/          # Next.js App Router
+│       │   ├── components/   # React 组件
+│       │   ├── lib/          # 工具函数
+│       │   └── store/        # Zustand 状态管理
+│       └── package.json
 ├── packages/
 │   ├── electron-core/         # Electron 核心功能包
 │   ├── electron-ipc/          # IPC 通信包
@@ -46,17 +58,60 @@ pnpm install
 
 ## 💻 开发指南
 
-### 启动开发环境
+### 启动 Web 应用
 
 ```bash
-# 启动所有应用
+# 仅启动 Next.js Web 应用
+cd apps/open-claw
 pnpm dev
+```
 
-# 仅启动 Electron 应用
-pnpm electron:dev
+访问 `http://localhost:3000` 查看应用。
 
-# 仅启动 Web 应用
-pnpm react:dev
+### 启动 Electron 应用（完整流程）
+
+**重要**：Electron 应用需要 Next.js 开发服务器在 `http://localhost:3000` 运行，否则会显示白屏。
+
+#### 方法 1：使用两个终端（推荐）
+
+**终端 1：启动 Next.js 开发服务器**
+```bash
+cd apps/open-claw
+pnpm dev
+```
+
+等待看到输出：
+```
+▲ Next.js 16.1.6
+- Local:        http://localhost:3000
+```
+
+**终端 2：构建共享包并启动 Electron**
+```bash
+# 构建共享包
+cd packages/electron-core && pnpm build
+cd ../electron-ipc && pnpm build
+cd ../electron-window && pnpm build
+
+# 启动 Electron 应用
+cd ../../apps/electron-app
+pnpm dev
+```
+
+#### 方法 2：使用 Turbo 一次性构建
+
+```bash
+# 构建所有包（包括共享包）
+pnpm build
+
+# 然后按方法 1 的步骤启动 Next.js 和 Electron
+```
+
+### 启动所有应用
+
+```bash
+# 使用 Turbo 启动所有应用（注意：这不会自动构建共享包）
+pnpm dev
 ```
 
 ### 代码检查
@@ -87,6 +142,7 @@ pnpm format:ci
 ### 构建所有应用
 
 ```bash
+# 构建所有包（包括共享包）
 pnpm build
 ```
 
@@ -112,7 +168,11 @@ pnpm build:electron
 ### 构建 Web 应用
 
 ```bash
+# 在根目录构建
 pnpm react:build
+
+# 或者在 apps/open-claw 目录下构建
+cd apps/open-claw && pnpm build
 ```
 
 ## 🧹 清理
@@ -127,6 +187,39 @@ pnpm clean
 ```bash
 # 下载 ytdlp 工具
 pnpm download-ytdlp
+```
+
+## ❓ 常见问题
+
+### Electron 应用显示白屏
+
+**原因**：Next.js 开发服务器未启动或无法访问 `http://localhost:3000`
+
+**解决方案**：
+1. 确保先启动 Next.js 开发服务器：`cd apps/open-claw && pnpm dev`
+2. 在浏览器中访问 `http://localhost:3000` 确认服务正常运行
+3. 然后再启动 Electron 应用
+
+### 找不到 `@monorepo/electron-core` 模块
+
+**原因**：共享包未构建
+
+**解决方案**：
+```bash
+cd packages/electron-core && pnpm build
+cd ../electron-ipc && pnpm build
+cd ../electron-window && pnpm build
+```
+
+### 端口 3000 被占用
+
+**解决方案**：
+```bash
+# 查看占用 3000 端口的进程
+lsof -i :3000
+
+# 杀掉占用端口的进程
+kill -9 <PID>
 ```
 
 ## 🎨 推荐的 IDE 设置
